@@ -1,0 +1,57 @@
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "luna-usb"
+version = "0.2.3+lutcam.1"
+description = "Amaranth HDL framework for FPGA-based USB solutions"
+license = { text = "BSD" }
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [
+    {name = "Great Scott Gadgets", email = "dev@greatscottgadgets.com"},
+]
+
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: BSD License",
+    "Operating System :: OS Independent",
+    "Natural Language :: English",
+    "Environment :: Console",
+    "Environment :: Other Environment",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)",
+    "Topic :: Security",
+    "Topic :: System :: Hardware :: Universal Serial Bus (USB)",
+]
+
+dependencies = [
+    "libusb1>1.9.2",
+    "pyserial>=3.5",
+    "pyusb>1.1.1",
+    "pyvcd>=0.2.4",
+    "amaranth~=0.5.0",
+    "usb-protocol~=0.9.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "apollo_fpga",
+    "prompt-toolkit>3.0.16",
+]
+
+[project.urls]
+Documentation = "https://luna.readthedocs.io"
+Repository    = "https://github.com/greatscottgadgets/luna"
+Issues        = "https://github.com/greatscottgadgets/luna/issues"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["luna*"]
+
+[tool.pdm.scripts]
+test.cmd = "python -m unittest discover -t . -s tests -v"
+

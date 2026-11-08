@@ -1,0 +1,14 @@
+[package]
+name = "lftag"
+version = "0.1.0"
+license.workspace = true
+edition = "2024"
+description = "Standalone LFTag3x3 decoder and planar pose reference"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+
+[dev-dependencies]
+lrcca = { path = "../lrcca" }

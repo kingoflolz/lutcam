@@ -1,0 +1,12 @@
+Lutcam
+Copyright 2026 Lutcam contributors
+
+Lutcam's original RTL/gateware, software, firmware, hardware designs,
+documentation, and supporting tools are licensed under the Apache License,
+Version 2.0. See LICENSE for the full license text.
+
+This includes original schematic and PCB designs, symbols, footprints,
+and mechanical models. Third-party code, library elements, models,
+datasheets, datasets, and other third-party material retain their own
+copyrights and license terms. See THIRD_PARTY_NOTICES.md and the notices
+provided with that material. No third-party rights are granted by this notice.

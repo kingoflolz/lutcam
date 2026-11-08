@@ -1,0 +1,165 @@
+#
+# This file is part of LiteEth.
+#
+# Copyright (c) 2015-2020 Florent Kermarrec <florent@enjoy-digital.fr>
+# Copyright (c) 2023 LumiGuide Fietsdetectie B.V. <goemansrowan@gmail.com>
+# SPDX-License-Identifier: BSD-2-Clause
+
+from litex.gen import *
+from migen.genlib.cdc import MultiReg
+
+from liteeth.common    import *
+from liteeth.mac       import LiteEthMAC
+from liteeth.core.arp  import LiteEthARP
+from liteeth.core.ip   import LiteEthIP
+from liteeth.core.udp  import LiteEthUDP
+from liteeth.core.icmp import LiteEthICMP
+from liteeth.core.igmp import LiteEthIGMPJoiner
+
+# IP Core ------------------------------------------------------------------------------------------
+
+class LiteEthIPCore(LiteXModule):
+    def __init__(self, phy, mac_address, ip_address, clk_freq, arp_entries=1, dw=8,
+        with_icmp         = True, icmp_fifo_depth=128,
+        with_igmp         = False, igmp_groups=None, igmp_interval=10, igmp_enable=None,
+        with_ip_broadcast = True,
+        with_sys_datapath = False,
+        tx_cdc_depth      = 32,
+        tx_cdc_buffered   = True,
+        rx_cdc_depth      = 32,
+        rx_cdc_buffered   = True,
+        interface         = "crossbar",
+        endianness        = "big",
+        eth_mtu           = eth_mtu_default,
+        gateway_ip        = None,
+        netmask           = None,
+    ):
+        # Parameters.
+        # -----------
+        ip_address = convert_ip(ip_address)
+
+        # MAC.
+        # ----
+        self.mac = LiteEthMAC(
+            phy               = phy,
+            dw                = dw,
+            interface         = interface,
+            endianness        = endianness,
+            hw_mac            = mac_address,
+            with_preamble_crc = True,
+            with_sys_datapath = with_sys_datapath,
+            tx_cdc_depth      = tx_cdc_depth,
+            tx_cdc_buffered   = tx_cdc_buffered,
+            rx_cdc_depth      = rx_cdc_depth,
+            rx_cdc_buffered   = rx_cdc_buffered,
+            eth_mtu           = eth_mtu,
+        )
+
+        # ARP.
+        # ----
+        self.arp = LiteEthARP(
+            mac         = self.mac,
+            mac_address = mac_address,
+            ip_address  = ip_address,
+            clk_freq    = clk_freq,
+            entries     = arp_entries,
+            dw          = dw,
+        )
+
+        # IP.
+        # ---
+        self.ip  = LiteEthIP(
+            mac            = self.mac,
+            mac_address    = mac_address,
+            ip_address     = ip_address,
+            arp_table      = self.arp.table,
+            with_broadcast = with_ip_broadcast,
+            dw             = dw,
+            gateway_ip     = gateway_ip,
+            netmask        = netmask,
+        )
+        # ICMP (Optional).
+        # ----------------
+        if with_icmp:
+            self.icmp = LiteEthICMP(
+                ip         = self.ip,
+                ip_address = ip_address,
+                dw         = dw,
+                fifo_depth = icmp_fifo_depth,
+            )
+
+        # IGMP (Optional).
+        # ----------------
+        if with_igmp:
+            assert igmp_groups is not None and len(igmp_groups) > 0
+            if igmp_enable is None:
+                igmp_enable = getattr(phy, "link_up", 1)
+            if isinstance(igmp_enable, (bool, int)):
+                igmp_enable_sys = int(igmp_enable)
+            else:
+                igmp_enable_sys = Signal()
+                self.specials += MultiReg(igmp_enable, igmp_enable_sys)
+            self.igmp = LiteEthIGMPJoiner(
+                ip           = self.ip,
+                groups       = igmp_groups,
+                interval     = igmp_interval,
+                sys_clk_freq = clk_freq,
+                enable       = igmp_enable_sys,
+            )
+
+# UDP IP Core --------------------------------------------------------------------------------------
+
+class LiteEthUDPIPCore(LiteEthIPCore):
+    def __init__(self, phy, mac_address, ip_address, clk_freq, arp_entries=1, dw=8,
+        with_icmp         = True, icmp_fifo_depth=128,
+        with_igmp         = False, igmp_groups=None, igmp_interval=10, igmp_enable=None,
+        with_ip_broadcast = True,
+        with_sys_datapath = False,
+        tx_cdc_depth      = 32,
+        tx_cdc_buffered   = True,
+        rx_cdc_depth      = 32,
+        rx_cdc_buffered   = True,
+        interface         = "crossbar",
+        endianness        = "big",
+        eth_mtu           = eth_mtu_default,
+        gateway_ip        = None,
+        netmask           = None,
+    ):
+        # Parameters.
+        # -----------
+        ip_address = convert_ip(ip_address)
+
+        # Core: MAC + ARP + IP + (ICMP) + (IGMP).
+        # ----------------------------------------
+        LiteEthIPCore.__init__(self,
+            phy               = phy,
+            mac_address       = mac_address,
+            ip_address        = ip_address,
+            clk_freq          = clk_freq,
+            arp_entries       = arp_entries,
+            with_icmp         = with_icmp,
+            icmp_fifo_depth   = icmp_fifo_depth,
+            with_igmp         = with_igmp,
+            igmp_groups       = igmp_groups,
+            igmp_interval     = igmp_interval,
+            igmp_enable       = igmp_enable,
+            dw                = dw,
+            interface         = interface,
+            endianness        = endianness,
+            with_ip_broadcast = with_ip_broadcast,
+            with_sys_datapath = with_sys_datapath,
+            tx_cdc_depth      = tx_cdc_depth,
+            tx_cdc_buffered   = tx_cdc_buffered,
+            rx_cdc_depth      = rx_cdc_depth,
+            rx_cdc_buffered   = rx_cdc_buffered,
+            eth_mtu           = eth_mtu,
+            gateway_ip        = gateway_ip,
+            netmask           = netmask,
+        )
+        # UDP.
+        # ----
+        self.udp = LiteEthUDP(
+            ip         = self.ip,
+            ip_address = ip_address,
+            dw         = dw,
+        )

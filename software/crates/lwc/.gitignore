@@ -1,0 +1,9 @@
+/target
+/comp/
+/.idea/
+**/__pycache__/
+
+# Financial statements and brokerage exports never belong in this repository.
+**/*[Bb]rokerage*.[Pp][Dd][Ff]
+**/*[Ss]tatement*.[Pp][Dd][Ff]
+**/*[Ff]idelity*.[Pp][Dd][Ff]

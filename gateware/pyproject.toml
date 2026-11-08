@@ -1,0 +1,34 @@
+[project]
+name = "lutcam-gateware"
+version = "0.1.0"
+license = "Apache-2.0"
+description = "LiteX build environment for the Lutcam Ti60 FPGA"
+# Keep the FPGA tooling on the tested interpreter.
+requires-python = ">=3.11,<3.12"
+dependencies = [
+    "migen",
+    "litex",
+    "liteeth==2026.8+lutcam.1",
+    "lutcam-litex-luna==0.1.0",
+    "luna-usb==0.2.3+lutcam.1",
+    "amaranth==0.5.8",
+    "amaranth-yosys==0.50.0.0.post129",
+    "numpy>=2.4.6",
+    "scipy>=1.17.1",
+]
+
+[dependency-groups]
+dev = ["pytest>=8,<10"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+luna-usb = { path = "vendor/luna", editable = true }
+migen = { git = "https://github.com/m-labs/migen.git", rev = "e19524c963a8342952840983047557707fbe0b6a" }
+litex = { git = "https://github.com/enjoy-digital/litex.git", rev = "b6ae9e0b227354aecffef5339d3e946f2395ac09" }
+liteeth = { path = "vendor/liteeth", editable = true }
+lutcam-litex-luna = { path = "vendor/litex_luna", editable = true }
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

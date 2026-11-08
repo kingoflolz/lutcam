@@ -1,0 +1,24 @@
+{
+  "format": "base64(gzip(64000 little-endian unsigned 32-bit cycle deltas))",
+  "first_delta": "First selection_commit rising edge relative to first valid pixel-pair edge at cycle 0",
+  "subsequent_deltas": "Current selection_commit edge minus preceding selection_commit edge",
+  "input_cadence": {
+    "active_pairs_per_line": 640,
+    "blank_cycles_per_line": 256,
+    "lines": 800,
+    "frame_pixels": [
+      1280,
+      800
+    ]
+  },
+  "output_ready": true,
+  "groups": 64000,
+  "first_commit_cycle": 1825,
+  "last_commit_cycle": 719880,
+  "minimum_subsequent_delta": 11,
+  "maximum_subsequent_delta": 483,
+  "uncompressed_bytes": 256000,
+  "uncompressed_sha256": "abb29cecf7b3d861e302f157be363f316eeb4d34f00e77089b44375a81ca3f97",
+  "validation": "The complete traces for flat128 pixels and binary xorshift64 pixels with seed0x243f6a8885a308d3 are identical.",
+  "scope": "Canonical scalar-reference timing only. Hardware replenishes using actual elapsed clocks and does not consume this table."
+}

@@ -1,0 +1,49 @@
+[workspace]
+members = [
+    "software/crates/lftag",
+    "software/crates/lwc",
+    "software/crates/lrcca",
+    "software/crates/lutcam-viewer",
+    "gateware/models/mono-isp",
+    "gateware/models/ov9281-csi2-rx",
+    "gateware/tests/support",
+    "gateware/tests/lwc",
+    "gateware/tests/lrcca",
+    "gateware/tests/lftag",
+    "gateware/tests/isp",
+    "gateware/tests/csi2_rx",
+    "gateware/tools/threshold-bench",
+]
+default-members = [
+    "software/crates/lftag",
+    "software/crates/lwc",
+    "software/crates/lrcca",
+    "software/crates/lutcam-viewer",
+]
+resolver = "2"
+
+[workspace.package]
+edition = "2024"
+license = "Apache-2.0"
+
+[workspace.dependencies]
+image = { version = "0.25.10", default-features = false, features = ["png", "gif"] }
+marlin = "0.16.0"
+
+[profile.dev]
+opt-level = 3
+debug = false
+debug-assertions = true
+overflow-checks = true
+incremental = false
+codegen-units = 16
+lto = false
+
+[profile.test]
+opt-level = 3
+debug = false
+debug-assertions = true
+overflow-checks = true
+incremental = false
+codegen-units = 16
+lto = false

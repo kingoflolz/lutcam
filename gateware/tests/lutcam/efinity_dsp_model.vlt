@@ -1,0 +1,12 @@
+`verilator_config
+// These warnings originate in Efinity's unmodified simulation library.
+// Keep all production RTL and testbench warnings fatal.
+lint_off -rule DECLFILENAME -file "*/sim_models/verilog/efx_dsp48.v"
+lint_off -rule DEFPARAM -file "*/sim_models/verilog/efx_dsp48.v"
+lint_off -rule GENUNNAMED -file "*/sim_models/verilog/efx_dsp48.v"
+lint_off -rule PROCASSINIT -file "*/sim_models/verilog/efx_dsp48.v"
+lint_off -rule SYNCASYNCNET -file "*/sim_models/verilog/efx_dsp48.v"
+lint_off -rule UNUSEDPARAM -file "*/sim_models/verilog/efx_dsp48.v"
+lint_off -rule UNUSEDSIGNAL -file "*/sim_models/verilog/efx_dsp48.v"
+lint_off -rule VARHIDDEN -file "*/sim_models/verilog/efx_dsp48.v"
+lint_off -rule WIDTHEXPAND -file "*/sim_models/verilog/efx_dsp48.v"

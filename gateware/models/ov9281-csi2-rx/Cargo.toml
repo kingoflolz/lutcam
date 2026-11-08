@@ -1,0 +1,10 @@
+[package]
+name = "ov9281-csi2-rx"
+version = "0.1.0"
+license.workspace = true
+edition = "2024"
+description = "Bit-exact CSI-2 packet reference model for the fixed OV9281 receiver"
+
+[lib]
+name = "ov9281_csi2_rx"
+path = "src/lib.rs"

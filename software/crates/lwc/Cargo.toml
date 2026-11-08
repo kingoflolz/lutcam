@@ -1,0 +1,10 @@
+[package]
+name = "lwc"
+version = "0.2.0"
+license.workspace = true
+edition = "2024"
+default-run = "lwc"
+
+[dependencies]
+flate2 = "1.1.9"
+image = { version = "0.25.10", default-features = false, features = ["png"] }

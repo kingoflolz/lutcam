@@ -1,0 +1,50 @@
+[
+  {
+    "lcsc": "C386763",
+    "metadata_url": "https://lceda.cn/api/products/C386763/components?version=6.4.19.5",
+    "uuid": "ec798774b2a74a4eb18223a7994d8921",
+    "name": "RJ45-TH_L16.0-W16.7-H16.5",
+    "step_url": "https://modules.lceda.cn/qAxj6KHrDKw4blvCG8QJPs7Y/ec798774b2a74a4eb18223a7994d8921",
+    "mesh_url": "https://modules.lceda.cn/3dmodel/ec798774b2a74a4eb18223a7994d8921"
+  },
+  {
+    "lcsc": "C7450621",
+    "metadata_url": "https://lceda.cn/api/products/C7450621/components?version=6.4.19.5",
+    "uuid": "022b0e16cd7548f8a28b87a498122716",
+    "name": "USB-C-TH_GT-USB-7055BB",
+    "step_url": "https://modules.lceda.cn/qAxj6KHrDKw4blvCG8QJPs7Y/022b0e16cd7548f8a28b87a498122716",
+    "mesh_url": "https://modules.lceda.cn/3dmodel/022b0e16cd7548f8a28b87a498122716"
+  },
+  {
+    "lcsc": "C41371106",
+    "metadata_url": "https://lceda.cn/api/products/C41371106/components?version=6.4.19.5",
+    "uuid": "33f88b2f5678422fbbee9486c04619a3",
+    "name": "OSC-SMD_4P-L1.6-W1.2-H0.4-BL",
+    "step_url": "https://modules.lceda.cn/qAxj6KHrDKw4blvCG8QJPs7Y/33f88b2f5678422fbbee9486c04619a3",
+    "mesh_url": "https://modules.lceda.cn/3dmodel/33f88b2f5678422fbbee9486c04619a3"
+  },
+  {
+    "lcsc": "C3003220",
+    "metadata_url": "https://lceda.cn/api/products/C3003220/components?version=6.4.19.5",
+    "uuid": "4e555d24fa1649e5a0c448bea69f6937",
+    "name": "SMD-24_L15.1-W7.1-H4.5-P1.00-LS10.0-BL",
+    "step_url": "https://modules.lceda.cn/qAxj6KHrDKw4blvCG8QJPs7Y/4e555d24fa1649e5a0c448bea69f6937",
+    "mesh_url": "https://modules.lceda.cn/3dmodel/4e555d24fa1649e5a0c448bea69f6937"
+  },
+  {
+    "lcsc": "C42406052",
+    "metadata_url": "https://lceda.cn/api/products/C42406052/components?version=6.4.19.5",
+    "uuid": "e2e3e744b95743d58fff0d6d96b91476",
+    "name": "ABS_4P-L5.0-W4.4-P4.00-LS6.2-BL",
+    "step_url": "https://modules.lceda.cn/qAxj6KHrDKw4blvCG8QJPs7Y/e2e3e744b95743d58fff0d6d96b91476",
+    "mesh_url": "https://modules.lceda.cn/3dmodel/e2e3e744b95743d58fff0d6d96b91476"
+  },
+  {
+    "lcsc": "C154881",
+    "metadata_url": "https://lceda.cn/api/products/C154881/components?version=6.4.19.5",
+    "uuid": "779e115253d748f68dd3328fb0524c11",
+    "name": "POWERDI-5_L5.4-W4.0-H1.0-LS6.5",
+    "step_url": "https://modules.lceda.cn/qAxj6KHrDKw4blvCG8QJPs7Y/779e115253d748f68dd3328fb0524c11",
+    "mesh_url": "https://modules.lceda.cn/3dmodel/779e115253d748f68dd3328fb0524c11"
+  }
+]

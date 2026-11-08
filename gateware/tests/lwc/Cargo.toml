@@ -1,0 +1,13 @@
+[package]
+name = "lwc-rtl-tests"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+publish = false
+description = "RTL verification for the LWC encoder and wavelet frontend"
+
+[dev-dependencies]
+lwc = { path = "../../../software/crates/lwc" }
+flate2 = "1.1.9"
+marlin.workspace = true
+rtl-test-support = { path = "../support" }

@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grayscale codecs at 1 bpp — DIV2K</title>
+<style>
+:root{color-scheme:light dark;font:15px/1.5 system-ui,sans-serif;--bg:light-dark(#fafaf8,#17191b);--fg:light-dark(#17212a,#e6e9eb);--muted:light-dark(#56616a,#adb5bc);--line:light-dark(#dce0e2,#41484e);--accent:light-dark(#005d79,#72d3ed)}
+*{box-sizing:border-box}body{background:var(--bg);color:var(--fg);margin:0;padding:32px;max-width:1600px;margin-inline:auto}h1{font-size:30px;font-weight:600;margin:0}h2{font-size:21px;margin:32px 0 12px}p{max-width:1000px}a{color:var(--accent)}.sub,.muted{color:var(--muted)}table{border-collapse:collapse;width:100%;font-variant-numeric:tabular-nums}th,td{text-align:right;border-bottom:1px solid var(--line);padding:10px}th:first-child,td:first-child{text-align:left}th{font-weight:500}.scroll{overflow:auto}.controls{display:flex;flex-wrap:wrap;gap:20px;align-items:end;margin:18px 0}label{display:grid;gap:5px}select,button{font:inherit;padding:6px 12px;border:1px solid var(--line);border-radius:5px;background:var(--bg);color:var(--fg)}input{accent-color:var(--accent)}.panels{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:14px}.panel{min-width:0}.panel h3{font-size:16px;margin:0 0 2px;font-weight:600}.panel p{margin:0 0 10px;font-size:13px;font-variant-numeric:tabular-nums}.panel canvas{display:block;width:100%;image-rendering:pixelated;background:#888}.panel a{display:inline-block;margin-top:5px;font-size:13px}.overview{display:flex;gap:20px;align-items:center;flex-wrap:wrap;margin:14px 0}.overview canvas{width:320px;max-width:100%;height:auto;cursor:crosshair}.caption{max-width:600px}.metricsplot{display:block;width:100%;max-width:1280px;margin:20px 0}details{margin-top:30px}summary{cursor:pointer;font-weight:600}code,pre{font-family:ui-monospace,monospace;font-size:13px}pre{overflow:auto;padding:15px;background:light-dark(#eee,#24272b)}.note{border-left:3px solid var(--accent);padding-left:15px}.source-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:15px}.source-grid img{width:100%}.source-grid p{margin:3px 0;font-size:13px}footer{margin-top:36px;color:var(--muted);font-size:13px}@media(max-width:1000px){.panels{grid-template-columns:repeat(3,minmax(0,1fr))}.source-grid{grid-template-columns:repeat(3,1fr)}}@media(max-width:650px){body{padding:18px}h1{font-size:25px}.panels,.source-grid{grid-template-columns:repeat(2,minmax(0,1fr))}}
+</style>
+<h1>Grayscale codecs at 1 bit per pixel</h1>
+<p class="sub">10 DIV2K validation images without LWC budget exhaustion · 1280 × 800 native-resolution crops · 8-bit grayscale · 128,000-byte cap per image</p>
+<div id="summary" class="scroll"></div>
+<p id="finding" class="note"></p>
+<h2>Inspect the reconstructions</h2>
+<div class="controls">
+  <label>Image<select id="image"></select></label>
+  <label>View<select id="view"><option value="crop">256 × 256 pixel detail</option><option value="full">Full frame</option></select></label>
+  <label>Crop X: <span id="x-value">512</span><input id="crop-x" type="range" min="0" max="1024" value="512"></label>
+  <label>Crop Y: <span id="y-value">544</span><input id="crop-y" type="range" min="0" max="544" value="544"></label>
+</div>
+<div class="overview"><canvas id="overview" width="640" height="400" role="img" aria-label="Original frame with selected crop"></canvas><div class="caption"><p>Click the original to move the shared crop. Each panel shows the same pixels. Full-resolution PNGs preserve the decoded samples; the browser may scale the preview to fit.</p><p id="source-detail" class="muted"></p></div></div>
+<div id="panels" class="panels"></div>
+<h2>Per-image quality</h2>
+<img class="metricsplot" src="figures/psnr.png" alt="PSNR by image for all four codecs on the same ten retained images">
+<div id="per-image" class="scroll"></div>
+<h2>Method</h2>
+<p><strong>Requested filter:</strong> exclude images 0826 and 0861, where LWC exhausts its bit budget and loses substantial content near the frame bottom. All four codecs are scored on the same remaining ten images. The raw twelve-image measurements are retained separately. This subset describes quality when LWC avoids budget exhaustion, rather than its performance on an unfiltered sample.</p>
+<p>Images come from the <a href="https://data.vision.ee.ethz.ch/cvl/DIV2K/">DIV2K validation HR set</a>. A seeded shuffle (20261107) of the sorted archive filenames selects the first 12 originals at least 1280 pixels wide and 800 pixels tall, before any encoding. Originals are 2040 pixels wide and 1152–1536 pixels tall. Each is converted to 8-bit grayscale with Pillow’s RGB-to-L conversion (0.299 R + 0.587 G + 0.114 B), then center-cropped to 1280 × 800. No resize, denoise, sharpening, tiling, or per-codec preprocessing is applied.</p>
+<p>All complete encoded files must fit in 128,000 bytes. LWC and JPEG XS produce exactly that size. JPEG and WebP use their actual complete file sizes; no padding is added to conceal rate underfill. PNG preview sizes are irrelevant to the rate calculation. LWC’s fixed frame includes zero padding; its mean semantic rate on these ten images is 0.774178 bpp. External network framing is excluded for every codec.</p>
+<ul>
+<li><strong>LWC:</strong> this workspace’s unmodified production Rust reference, v0.2.0, canonical 640-active/256-blank raster cadence, production burst limiting enabled. The fixed profile is not retuned. Its headerless dimensions and profile are known out of band.</li>
+<li><strong>JPEG:</strong> libjpeg-turbo 3.2.1, baseline grayscale, accurate integer DCT/IDCT and optimized Huffman coding. Search integer quality downward, then enumerate distinct scalar refinements of the standard luminance quantization table between the highest fitting quality and the next integer quality. Choose the lowest-error fitting trial. This refines table scale only, not table shape.</li>
+<li><strong>JPEG XS:</strong> official <a href="https://jpeg.org/jpegxs/software.html">ISO/IEC 21122-5:2025 reference software</a>, XSM 3.0.2-ED3, native one-component grayscale, 5 horizontal / 2 vertical decompositions, 16-line slices, High444.12 profile and fixed byte rate. The bundled tables do not include monochrome: use component-zero gains from its existing 3-component, no-color-transform PSNR table, with that component’s priorities rank-compressed. These fixed values are selected from source code, without image-specific fitting. Every stream is decoded by both XSM and SVT-JPEG-XS; all pixels match exactly. This measures one reference encoder configuration, not the best possible JPEG XS implementation.</li>
+<li><strong>WebP:</strong> libwebp 1.6.0 through Pillow 13.0.0, lossy method 6. Sixteen quality-bisection steps plus neighboring trials; choose the lowest-error fitting trial. WebP imports the gray image as equal RGB channels, uses normal internal color conversion, and includes all RIFF/chroma overhead. Decoded RGB is converted back to grayscale for measurement.</li>
+</ul>
+<p>PSNR uses the complete frame, including boundaries, against the prepared grayscale source. Pooled PSNR is 10 log₁₀(255² / pooled MSE); mean PSNR is the arithmetic mean of the 10 per-image values. SSIM uses an 11 × 11 Gaussian window, σ = 1.5, population covariance, K₁ = 0.01, K₂ = 0.03, data range 255, and excludes a 5-pixel border. Higher PSNR and SSIM mean closer pixel reconstruction; neither proves preferred visual quality.</p>
+<p>JPEG and WebP receive a full-image parameter search, while LWC and JPEG XS use fixed streaming-oriented configurations. This is a reconstruction-quality comparison, not a latency, hardware-area, power, or throughput benchmark. Ten retained native crops are a small subset, not the whole DIV2K set.</p>
+<details><summary>Exact JPEG XS configuration and reproduction</summary>
+<pre id="xs-config"></pre>
+<p>From the repository, run <code>bash software/crates/lwc/tools/reproduce_comparison.sh</code>. Dependencies: Cargo, CMake, NASM, libjpeg-turbo cjpeg/djpeg, curl, unzip, and Python with Pillow, NumPy, SciPy, and Matplotlib. The script downloads the public reference software and sample images. See <a href="selection.json">selection.json</a> for original hashes and crop coordinates, <a href="metrics.json">metrics.json</a> for measurements and search trials, and <a href="provenance.json">provenance.json</a> for software hashes and versions.</p></details>
+<h2>Source sample</h2><div id="sources" class="source-grid"></div>
+<footer>Dataset: Eirikur Agustsson and Radu Timofte, “NTIRE 2017 Challenge on Single Image Super-Resolution: Dataset and Study,” CVPR Workshops, 2017. DIV2K is provided for academic research; original-image copyright remains with its owners. Benchmark generated November 7, 2026.</footer>
+<script id="data" type="application/json">__REPORT_DATA__</script>
+<script>
+const data=JSON.parse(document.getElementById('data').textContent),codecNames={LWC:'LWC',JPEG:'JPEG',JPEG_XS:'JPEG XS',WebP:'WebP'};
+const codecs=Object.keys(codecNames),all=['source',...codecs],names={source:'Original',...codecNames};
+const summary=document.getElementById('summary');
+summary.innerHTML='<table><thead><tr><th>Codec</th><th>Pooled PSNR (dB)</th><th>Mean PSNR (dB)</th><th>Mean SSIM</th><th>Actual bpp</th></tr></thead><tbody>'+codecs.map(c=>{let s=data.summary[c];return `<tr><td>${names[c]}</td><td>${s.pooled_psnr_db.toFixed(2)}</td><td>${s.mean_psnr_db.toFixed(2)}</td><td>${s.mean_ssim.toFixed(4)}</td><td>${s.bpp.toFixed(4)}</td></tr>`}).join('')+'</tbody></table>';
+document.getElementById('finding').textContent=data.finding;
+document.getElementById('xs-config').textContent=data.jxs_config;
+document.getElementById('per-image').innerHTML='<table><thead><tr><th>Image</th>'+codecs.map(c=>`<th>${names[c]} PSNR</th>`).join('')+'</tr></thead><tbody>'+data.images.map(im=>`<tr><td>${im.id} · ${im.label}</td>`+codecs.map(c=>`<td>${im.metrics[c].psnr_db.toFixed(2)} dB</td>`).join('')+'</tr>').join('')+'</tbody></table>';
+document.getElementById('sources').innerHTML=data.images.map(im=>`<div><img src="source/${im.id}.png" alt="${im.label}"><p>${im.id} · ${im.label}<br>${im.width} × ${im.height} original</p></div>`).join('');
+const imageSelect=document.getElementById('image');imageSelect.innerHTML=data.images.map(im=>`<option value="${im.id}">${im.id} · ${im.label}</option>`).join('');
+const panels=document.getElementById('panels');panels.innerHTML=all.map(c=>`<section class="panel"><h3>${names[c]}</h3><p id="m-${c}"></p><canvas id="c-${c}" width="256" height="256" role="img" aria-label="${names[c]} reconstruction"></canvas><a id="a-${c}" target="_blank">Full-resolution PNG</a></section>`).join('');
+let images={},generation=0;
+function draw(){const x=+document.getElementById('crop-x').value,y=+document.getElementById('crop-y').value,full=document.getElementById('view').value==='full';document.getElementById('x-value').textContent=x;document.getElementById('y-value').textContent=y;
+all.forEach(c=>{const canvas=document.getElementById('c-'+c),ctx=canvas.getContext('2d');canvas.width=full?1280:256;canvas.height=full?800:256;if(images[c])ctx.drawImage(images[c],full?0:x,full?0:y,full?1280:256,full?800:256,0,0,canvas.width,canvas.height);});
+const overview=document.getElementById('overview'),ctx=overview.getContext('2d');if(images.source){ctx.drawImage(images.source,0,0,640,400);ctx.strokeStyle='#ffb000';ctx.lineWidth=3;ctx.strokeRect(x/2,y/2,128,128);}}
+function change(){const im=data.images.find(im=>im.id===imageSelect.value),gen=++generation;images={};document.getElementById('source-detail').textContent=`Source ${im.width} × ${im.height}; native crop at (${im.crop_xywh[0]}, ${im.crop_xywh[1]}).`;
+all.forEach(c=>{const image=new Image();image.onload=()=>{if(gen!==generation)return;images[c]=image;draw()};image.src=`${c}/${im.id}.png`;document.getElementById('a-'+c).href=image.src;document.getElementById('m-'+c).textContent=c==='source'?'Uncompressed reference':`${im.metrics[c].psnr_db.toFixed(2)} dB · ${im.metrics[c].ssim.toFixed(4)} SSIM · ${im.metrics[c].bpp.toFixed(4)} bpp`;});}
+imageSelect.addEventListener('change',change);['view','crop-x','crop-y'].forEach(id=>document.getElementById(id).addEventListener('input',draw));
+document.getElementById('overview').addEventListener('click',e=>{const r=e.currentTarget.getBoundingClientRect();document.getElementById('crop-x').value=Math.max(0,Math.min(1024,Math.round((e.clientX-r.left)/r.width*1280-128)));document.getElementById('crop-y').value=Math.max(0,Math.min(544,Math.round((e.clientY-r.top)/r.height*800-128)));draw()});change();
+</script>
+</html>

@@ -1,0 +1,12 @@
+[package]
+name = "isp-rtl-tests"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+publish = false
+description = "RTL verification for the monochrome ISP"
+
+[dev-dependencies]
+mono-isp = { path = "../../models/mono-isp" }
+marlin.workspace = true
+rtl-test-support = { path = "../support" }

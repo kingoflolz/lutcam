@@ -1,0 +1,32 @@
+<div id="codec-div2k-comparison">
+  <div class="table-responsive"><table class="table table-sm"><thead><tr><th>Codec</th><th class="text-end">Pooled PSNR</th><th class="text-end">Mean SSIM</th><th class="text-end">Actual bpp</th></tr></thead><tbody data-summary></tbody></table></div>
+  <div class="viz-controls">
+    <label class="form-label">DIV2K image<select class="form-select" data-image></select></label>
+    <label class="form-label">Detail location<select class="form-select" data-location><option value="center">Center</option><option value="bottom">Lower center</option></select></label>
+    <label class="form-label">Magnification<select class="form-select" data-zoom><option value="1">100%</option><option value="2">200%</option></select></label>
+  </div>
+  <div class="codec-overview"><canvas data-overview width="256" height="160" role="img" aria-label="Original image and highlighted detail location"></canvas><span data-caption class="text-small text-muted"></span></div>
+  <div data-panels class="codec-panels" aria-live="polite"></div>
+</div>
+<style>
+#codec-div2k-comparison{display:grid;gap:calc(var(--font-size-base)*1)}
+#codec-div2k-comparison .codec-overview{display:flex;gap:calc(var(--font-size-base)*1);align-items:center;flex-wrap:wrap}
+#codec-div2k-comparison .codec-overview canvas{width:192px;max-width:100%;height:auto}
+#codec-div2k-comparison .codec-panels{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,var(--crop-display)),1fr));gap:calc(var(--font-size-base)*.75)}
+#codec-div2k-comparison .codec-panel{display:grid;align-content:start;gap:calc(var(--font-size-base)*.25);min-width:0}
+#codec-div2k-comparison .codec-panel img{width:var(--crop-display);max-width:100%;height:auto;image-rendering:pixelated}
+</style>
+<script type="application/json" id="codec-div2k-data">__INLINE_DATA__</script>
+<script>
+(()=>{const root=document.getElementById('codec-div2k-comparison'),data=JSON.parse(document.getElementById('codec-div2k-data').textContent);
+const codecs=['LWC','JPEG','JPEG_XS','WebP'],names={source:'Original',LWC:'LWC',JPEG:'JPEG',JPEG_XS:'JPEG XS',WebP:'WebP'};
+const select=root.querySelector('[data-image]'),location=root.querySelector('[data-location]'),zoom=root.querySelector('[data-zoom]');
+root.querySelector('[data-summary]').innerHTML=codecs.map(c=>{const s=data.summary[c];return `<tr><td>${names[c]}</td><td class="text-end">${s.pooled_psnr_db.toFixed(2)} dB</td><td class="text-end">${s.mean_ssim.toFixed(4)}</td><td class="text-end">${s.bpp.toFixed(4)}</td></tr>`}).join('');
+select.innerHTML=data.images.map(im=>`<option value="${im.id}">${im.id} · ${im.label}</option>`).join('');
+function drawOverview(im,rect){const image=new Image();image.onload=()=>{if(select.value!==im.id)return;const canvas=root.querySelector('[data-overview]'),ctx=canvas.getContext('2d');ctx.drawImage(image,0,0,256,160);ctx.strokeStyle=getComputedStyle(root).getPropertyValue('--foreground').trim();ctx.lineWidth=2;ctx.strokeRect(rect[0]/5,rect[1]/5,data.crop_size/5,data.crop_size/5)};image.src=im.overview;}
+function render(){const im=data.images.find(x=>x.id===select.value)||data.images[0],loc=location.value,rect=data.locations[loc],size=data.crop_size;root.style.setProperty('--crop-display',`${size*Number(zoom.value)}px`);root.querySelector('[data-caption]').textContent=`${im.width} × ${im.height} source · ${size} × ${size} pixel detail at (${rect[0]}, ${rect[1]})`;
+root.querySelector('[data-panels]').innerHTML=['source',...codecs].map(c=>`<div class="codec-panel"><span>${names[c]}</span><img src="${im.crops[loc][c]}" alt="${names[c]} ${loc} detail of ${im.label}" width="${size}" height="${size}"><span class="text-small tabular-nums">${c==='source'?'Reference':im.metrics[c].psnr_db.toFixed(2)+' dB · '+im.metrics[c].ssim.toFixed(4)}</span></div>`).join('');drawOverview(im,rect);}
+function restore(state){const s=state?.privateContent;if(s){if(data.images.some(im=>im.id===s.image))select.value=s.image;if(['center','bottom'].includes(s.location))location.value=s.location;if(['1','2'].includes(s.zoom))zoom.value=s.zoom;}render();}
+function changed(){render();if(window.openai?.setWidgetState)window.openai.setWidgetState({modelContent:{dataset:'DIV2K validation',image:select.value,detail:location.value},privateContent:{image:select.value,location:location.value,zoom:zoom.value}}).catch(()=>{});}
+[select,location,zoom].forEach(e=>e.addEventListener('change',changed));window.addEventListener('openai:set_globals',e=>{if(e.detail?.globals?.widgetState)restore(e.detail.globals.widgetState)});restore(window.openai?.widgetState);})();
+</script>

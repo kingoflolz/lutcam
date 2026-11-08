@@ -1,0 +1,14 @@
+[package]
+name = "lrcca-rtl-tests"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+publish = false
+description = "RTL verification for LRCCA and TagDetect"
+
+[dev-dependencies]
+lwc = { path = "../../../software/crates/lwc" }
+lrcca = { path = "../../../software/crates/lrcca" }
+image.workspace = true
+marlin.workspace = true
+rtl-test-support = { path = "../support" }

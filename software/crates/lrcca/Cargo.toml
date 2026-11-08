@@ -1,0 +1,13 @@
+[package]
+name = "lrcca"
+version = "0.1.0"
+license.workspace = true
+edition = "2024"
+description = "Bit-accurate Rust reference models for LRCCA and TagDetect"
+
+[lib]
+path = "src/lib.rs"
+
+[dependencies]
+image.workspace = true
+lwc = { path = "../lwc" }

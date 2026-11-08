@@ -1,0 +1,16 @@
+[package]
+name = "lftag-rtl-tests"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+publish = false
+description = "RTL verification for LFTag and the integrated camera pipeline"
+
+[dev-dependencies]
+image.workspace = true
+lftag = { path = "../../../software/crates/lftag" }
+lrcca = { path = "../../../software/crates/lrcca" }
+lwc = { path = "../../../software/crates/lwc" }
+ov9281-csi2-rx = { path = "../../models/ov9281-csi2-rx" }
+marlin.workspace = true
+rtl-test-support = { path = "../support" }

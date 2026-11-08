@@ -1,0 +1,6 @@
+(sym_lib_table
+  (lib (name "TI60F225C4")(type "KiCad")(uri "${KIPRJMOD}/TI60F225/TI60F225C4.kicad_sym")(options "")(descr "Efinix Titanium Ti60 F225 BGA225"))
+
+  (lib (name "OV9281") (type "KiCad") (uri "${KIPRJMOD}/OV9281/OV9281.kicad_sym") (options "") (descr ""))
+  (lib (name "RTL8211F") (type "KiCad") (uri "${KIPRJMOD}/RTL8211F/RTL8211F.kicad_sym") (options "") (descr ""))
+  (lib (name "PoE") (type "KiCad") (uri "${KIPRJMOD}/PoE/PoE.kicad_sym") (options "") (descr "")))

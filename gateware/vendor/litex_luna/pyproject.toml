@@ -1,0 +1,14 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lutcam-litex-luna"
+version = "0.1.0"
+description = "Vendored LiteX LUNA wrapper with Lutcam packet and reset wiring"
+requires-python = ">=3.11"
+license = {file = "LICENSE"}
+dependencies = ["litex", "luna-usb==0.2.3+lutcam.1", "amaranth==0.5.8"]
+
+[tool.setuptools]
+packages = ["litex_luna"]

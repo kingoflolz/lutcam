@@ -1,0 +1,571 @@
+#
+# This file is part of LiteEth.
+#
+# Copyright (c) 2015-2024 Florent Kermarrec <florent@enjoy-digital.fr>
+# SPDX-License-Identifier: BSD-2-Clause
+
+"""
+Etherbone
+
+CERN's Etherbone protocol is initially used to run a Wishbone bus over an
+ethernet network. This re-implementation is meant to be run over ethernet
+and introduces some limitations:
+- no address spaces (rca/bca/wca/wff)
+- 32bits data and address
+- 1 record per frame
+"""
+
+from litex.gen import *
+
+from liteeth.common import *
+
+from litex.soc.interconnect import wishbone
+from litex.soc.interconnect.packet import *
+
+from liteeth.mac.common import LiteEthLastHandler
+from liteeth.frontend.etherbone_receiver import StreamingEtherboneRecordReceiver
+
+from liteeth.packet import IndexedDepacketizer as Depacketizer, IndexedPacketizer as Packetizer
+
+
+class _RecordFIFO(PacketFIFO):
+    """Keep bulk record storage in Efinix block RAM."""
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.payload_fifo.depth > 1:
+            for memory in self.payload_fifo.fifo.fifo._fragment.specials:
+                if isinstance(memory, Memory):
+                    memory.attr = set(getattr(memory, "attr", ())) | {("syn_ramstyle", "block_ram")}
+
+# Etherbone Packet ---------------------------------------------------------------------------------
+
+class LiteEthEtherbonePacketPacketizer(Packetizer):
+    def __init__(self):
+        Packetizer.__init__(self,
+            eth_etherbone_packet_description(32),
+            eth_udp_user_description(32),
+            etherbone_packet_header
+        )
+
+
+class LiteEthEtherbonePacketTX(LiteXModule):
+    def __init__(self, udp_port):
+        self.sink   = sink   = stream.Endpoint(eth_etherbone_packet_user_description(32))
+        self.source = source = stream.Endpoint(eth_udp_user_description(32))
+
+        # # #
+
+        self.packetizer = packetizer = LiteEthEtherbonePacketPacketizer()
+        self.comb += [
+            sink.connect(packetizer.sink, keep={"valid", "last", "last_be", "ready", "data"}),
+            sink.connect(packetizer.sink, keep={"pf", "pr", "nr"}),
+            packetizer.sink.version.eq(etherbone_version),
+            packetizer.sink.magic.eq(etherbone_magic),
+            packetizer.sink.port_size.eq(32//8),
+            packetizer.sink.addr_size.eq(32//8),
+        ]
+        self.fsm = fsm = FSM(reset_state="IDLE")
+        fsm.act("IDLE",
+            If(packetizer.source.valid,
+                NextState("SEND")
+            )
+        )
+        fsm.act("SEND",
+            packetizer.source.connect(source),
+            source.src_port.eq(udp_port),
+            source.dst_port.eq(sink.src_port),
+            source.ip_address.eq(sink.ip_address),
+            source.length.eq(sink.length + etherbone_packet_header.length),
+            If(source.valid & source.last & source.ready,
+                NextState("IDLE")
+            )
+        )
+
+
+class LiteEthEtherbonePacketDepacketizer(Depacketizer):
+    def __init__(self):
+        Depacketizer.__init__(self,
+            eth_udp_user_description(32),
+            eth_etherbone_packet_description(32),
+            etherbone_packet_header)
+
+
+class LiteEthEtherbonePacketRX(LiteXModule):
+    def __init__(self, with_last_handler=False):
+        self.sink   = sink   = stream.Endpoint(eth_udp_user_description(32))
+        self.source = source = stream.Endpoint(eth_etherbone_packet_user_description(32))
+
+        # # #
+
+        self.depacketizer = depacketizer = LiteEthEtherbonePacketDepacketizer()
+
+        if with_last_handler:
+            self.last_handler = LiteEthLastHandler(eth_udp_user_description(32))
+            self.comb += [
+                sink.connect(self.last_handler.sink),
+                self.last_handler.source.connect(depacketizer.sink),
+            ]
+        else:
+            self.comb += sink.connect(depacketizer.sink)
+
+        self.fsm = fsm = FSM(reset_state="IDLE")
+        fsm.act("IDLE",
+            If(depacketizer.source.valid,
+                NextState("DROP"),
+                If(depacketizer.source.magic == etherbone_magic,
+                    NextState("RECEIVE")
+                )
+            )
+        )
+        self.comb += [
+            depacketizer.source.connect(source, keep={"last", "last_be", "pf", "pr", "nr", "data"}),
+            source.src_port.eq(sink.src_port),
+            source.dst_port.eq(sink.dst_port),
+            source.ip_address.eq(sink.ip_address),
+            source.length.eq(sink.length - etherbone_packet_header.length)
+        ]
+        fsm.act("RECEIVE",
+            depacketizer.source.connect(source, keep={"valid", "ready"}),
+            If(source.valid & source.ready,
+                If(source.last,
+                    NextState("IDLE")
+                )
+            )
+        )
+        fsm.act("DROP",
+            depacketizer.source.ready.eq(1),
+            If(depacketizer.source.valid &
+               depacketizer.source.last &
+               depacketizer.source.ready,
+                NextState("IDLE")
+            )
+        )
+
+
+class LiteEthEtherbonePacket(LiteXModule):
+    def __init__(self, udp, udp_port, cd="sys", max_packet_length=None):
+        self.tx = tx = LiteEthEtherbonePacketTX(udp_port)
+        self.rx = rx = LiteEthEtherbonePacketRX(with_last_handler=(udp.crossbar.dw == 64)) # FIXME: Avoid 64-bit specific behavior.
+        # On a UDP crossbar wider than 32-bit, buffer TX packets after the up-conversion so they are
+        # sent back-to-back (required by PHYs that cannot pause a frame, ex XGMII).
+        port_kwargs = {}
+        if (udp.crossbar.dw > 32) and (max_packet_length is not None):
+            bytes_per_word  = udp.crossbar.dw//8
+            tx_buffer_depth = (max_packet_length + bytes_per_word - 1)//bytes_per_word
+            port_kwargs["tx_buffer_depth"] = tx_buffer_depth
+        udp_port = udp.crossbar.get_port(udp_port, dw=32, cd=cd, **port_kwargs)
+        self.comb += [
+            tx.source.connect(udp_port.sink),
+            udp_port.source.connect(rx.sink)
+        ]
+        self.sink, self.source = self.tx.sink, self.rx.source
+
+
+# Etherbone Probe ----------------------------------------------------------------------------------
+
+class LiteEthEtherboneProbe(LiteXModule):
+    def __init__(self):
+        self.sink   = sink   = stream.Endpoint(eth_etherbone_packet_user_description(32))
+        self.source = source = stream.Endpoint(eth_etherbone_packet_user_description(32))
+
+        # # #
+
+        self.fifo = fifo = PacketFIFO(eth_etherbone_packet_user_description(32),
+            payload_depth = 1,
+            # PacketFIFO reserves one extra parameter slot internally.
+            param_depth   = 0,
+            buffered      = False
+        )
+        self.comb += sink.connect(fifo.sink)
+
+        self.fsm = fsm = FSM(reset_state="IDLE")
+        fsm.act("IDLE",
+            If(fifo.source.valid,
+                NextState("PROBE_RESPONSE")
+            )
+        )
+        fsm.act("PROBE_RESPONSE",
+            fifo.source.connect(source),
+            source.pf.eq(0),
+            source.pr.eq(1),
+            If(source.valid & source.ready,
+                If(source.last,
+                    NextState("IDLE")
+                )
+            )
+        )
+
+# Etherbone Record ---------------------------------------------------------------------------------
+
+class LiteEthEtherboneRecordPacketizer(Packetizer):
+    def __init__(self):
+        Packetizer.__init__(self,
+            eth_etherbone_record_description(32),
+            eth_etherbone_packet_user_description(32),
+            etherbone_record_header)
+
+
+class LiteEthEtherboneRecordDepacketizer(Depacketizer):
+    def __init__(self):
+        Depacketizer.__init__(self,
+            eth_etherbone_packet_user_description(32),
+            eth_etherbone_record_description(32),
+            etherbone_record_header)
+
+
+class LiteEthEtherboneRecordReceiver(LiteXModule):
+    def __init__(self, buffer_depth=4):
+        self.sink   = sink   = stream.Endpoint(eth_etherbone_record_description(32))
+        self.source = source = stream.Endpoint(eth_etherbone_mmap_description(32))
+
+        # # #
+
+        assert buffer_depth <= 256
+        self.fifo = fifo = _RecordFIFO(eth_etherbone_record_description(32),
+            payload_depth = buffer_depth,
+            param_depth   = 1,
+            buffered      = True
+        )
+        self.comb += sink.connect(fifo.sink)
+
+        base_addr = Signal(32, reset_less=True)
+        base_addr_update = Signal()
+        self.sync += If(base_addr_update, base_addr.eq(fifo.source.data))
+
+        count = Signal(max=512, reset_less=True)
+
+        self.fsm = fsm = FSM(reset_state="IDLE")
+        fsm.act("IDLE",
+            fifo.source.ready.eq(1),
+            NextValue(count, 0),
+            If(fifo.source.valid,
+                base_addr_update.eq(1),
+                If(fifo.source.wcount,
+                    NextState("RECEIVE_WRITES")
+                ).Elif(fifo.source.rcount,
+                    NextState("RECEIVE_READS")
+                )
+            )
+        )
+        fsm.act("RECEIVE_WRITES",
+            source.valid.eq(fifo.source.valid),
+            source.last.eq(count == fifo.source.wcount-1),
+            source.last_be.eq(source.last << 3),
+            source.count.eq(fifo.source.wcount),
+            source.be.eq(fifo.source.byte_enable),
+            source.addr.eq(base_addr[2:] + count),
+            source.we.eq(1),
+            source.data.eq(fifo.source.data),
+            fifo.source.ready.eq(source.ready),
+            If(source.valid & source.ready,
+                NextValue(count, count + 1),
+                If(source.last,
+                    If(fifo.source.rcount,
+                        NextState("RECEIVE_BASE_RET_ADDR")
+                    ).Else(
+                        NextState("IDLE")
+                    )
+                )
+            )
+        )
+        fsm.act("RECEIVE_BASE_RET_ADDR",
+            NextValue(count, 0),
+            If(fifo.source.valid,
+                base_addr_update.eq(1),
+                NextState("RECEIVE_READS")
+            )
+        )
+        fsm.act("RECEIVE_READS",
+            source.valid.eq(fifo.source.valid),
+            source.last.eq(count == fifo.source.rcount-1),
+            source.last_be.eq(source.last << 3),
+            source.count.eq(fifo.source.rcount),
+            source.be.eq(fifo.source.byte_enable),
+            source.base_addr.eq(base_addr),
+            source.addr.eq(fifo.source.data[2:]),
+            fifo.source.ready.eq(source.ready),
+            If(source.valid & source.ready,
+                NextValue(count, count + 1),
+                If(source.last,
+                    NextState("IDLE")
+                )
+            )
+        )
+
+
+class LiteEthEtherboneRecordSender(LiteXModule):
+    def __init__(self, buffer_depth=4):
+        self.sink   = sink   = stream.Endpoint(eth_etherbone_mmap_description(32))
+        self.source = source = stream.Endpoint(eth_etherbone_record_description(32))
+
+        # # #
+
+        assert buffer_depth <= 256
+        self.fifo = fifo = _RecordFIFO(eth_etherbone_mmap_description(32),
+            payload_depth = buffer_depth,
+            param_depth   = 1,
+            buffered      = True
+        )
+        self.comb += sink.connect(fifo.sink)
+
+        self.fsm = fsm = FSM(reset_state="IDLE")
+        fsm.act("IDLE",
+            If(fifo.source.valid,
+                NextState("SEND_BASE_ADDRESS")
+            )
+        )
+        self.comb += [
+            source.byte_enable.eq(fifo.source.be),
+            If(fifo.source.we,
+                source.wcount.eq(fifo.source.count)
+            ).Else(
+                source.rcount.eq(fifo.source.count)
+            )
+        ]
+        fsm.act("SEND_BASE_ADDRESS",
+            source.valid.eq(1),
+            source.last.eq(0),
+            source.data.eq(fifo.source.base_addr),
+            If(source.ready,
+                NextState("SEND_DATA")
+            )
+        )
+        fsm.act("SEND_DATA",
+            source.valid.eq(1),
+            source.last.eq(fifo.source.last),
+            source.last_be.eq(fifo.source.last_be),
+            source.data.eq(fifo.source.data),
+            If(source.valid & source.ready,
+                fifo.source.ready.eq(1),
+                If(source.last,
+                    NextState("IDLE")
+                )
+            )
+        )
+
+
+class LiteEthEtherboneRecord(LiteXModule):
+    @staticmethod
+    def _receiver(buffer_depth):
+        return LiteEthEtherboneRecordReceiver(buffer_depth)
+
+    def __init__(self, endianness="big", buffer_depth=4):
+        self.sink   = sink   = stream.Endpoint(eth_etherbone_packet_user_description(32))
+        self.source = source = stream.Endpoint(eth_etherbone_packet_user_description(32))
+
+        # # #
+
+        # Receive record, decode it and generate mmap stream.
+        self.depacketizer = depacketizer = LiteEthEtherboneRecordDepacketizer()
+        self.receiver     = receiver     = self._receiver(buffer_depth)
+        self.comb += [
+            sink.connect(depacketizer.sink),
+            depacketizer.source.connect(receiver.sink)
+        ]
+        if endianness == "big":
+            self.comb += receiver.sink.data.eq(reverse_bytes(depacketizer.source.data))
+
+        # Save last ip address/src port.
+        first = Signal(reset=1)
+        last_ip_address = Signal(32, reset_less=True)
+        last_src_port   = Signal(16, reset_less=True)
+        self.sync += [
+            If(sink.valid & sink.ready,
+                If(first,
+                    last_ip_address.eq(sink.ip_address),
+                    last_src_port.eq(sink.src_port),
+                ),
+                first.eq(sink.last)
+            )
+        ]
+
+        if isinstance(receiver, StreamingEtherboneRecordReceiver):
+            length = Signal(16)
+            self.sync += If(sink.valid & sink.ready & first, length.eq(sink.length))
+            self.comb += receiver.length.eq(length)
+
+        # Receive MMAP stream, encode it and send records.
+        self.sender     = sender     = LiteEthEtherboneRecordSender(buffer_depth)
+        self.packetizer = packetizer = LiteEthEtherboneRecordPacketizer()
+        self.comb += [
+            sender.source.connect(packetizer.sink),
+            packetizer.source.connect(source),
+            source.length.eq(etherbone_record_header.length +
+                (sender.source.wcount != 0)*4 + sender.source.wcount*4 +
+                (sender.source.rcount != 0)*4 + sender.source.rcount*4),
+            source.ip_address.eq(last_ip_address),
+            source.src_port.eq(last_src_port),
+        ]
+        if endianness == "big":
+            self.comb += packetizer.sink.data.eq(reverse_bytes(sender.source.data))
+
+class LiteEthEtherboneValidatedRecord(LiteEthEtherboneRecord):
+    """Use the upstream MAC's checked frame RAM instead of a second RX FIFO."""
+    @staticmethod
+    def _receiver(buffer_depth):
+        return StreamingEtherboneRecordReceiver()
+
+    @property
+    def validated_receiver(self):
+        return self.receiver
+
+
+# Etherbone Wishbone Master ------------------------------------------------------------------------
+
+class LiteEthEtherboneWishboneMaster(LiteXModule):
+    def __init__(self):
+        self.sink   = sink   = stream.Endpoint(eth_etherbone_mmap_description(32))
+        self.source = source = stream.Endpoint(eth_etherbone_mmap_description(32))
+        self.bus    = bus    = wishbone.Interface()
+
+        # # #
+
+        data_update = Signal()
+
+        self.fsm = fsm = FSM(reset_state="IDLE")
+        fsm.act("IDLE",
+            sink.ready.eq(1),
+            If(sink.valid,
+                sink.ready.eq(0),
+                If(sink.we,
+                    NextState("WRITE_DATA")
+                ).Else(
+                    NextState("READ_DATA")
+                )
+            )
+        )
+        fsm.act("WRITE_DATA",
+            bus.adr.eq(sink.addr),
+            bus.dat_w.eq(sink.data),
+            bus.sel.eq(sink.be),
+            bus.stb.eq(sink.valid),
+            bus.we.eq(1),
+            bus.cyc.eq(1),
+            If(bus.stb & bus.ack,
+                sink.ready.eq(1),
+                If(sink.last,
+                    NextState("IDLE")
+                )
+            )
+        )
+        fsm.act("READ_DATA",
+            bus.adr.eq(sink.addr),
+            bus.sel.eq(sink.be),
+            bus.stb.eq(sink.valid),
+            bus.cyc.eq(1),
+            If(bus.stb & bus.ack,
+                data_update.eq(1),
+                NextState("SEND_DATA")
+            )
+        )
+        self.sync += [
+            sink.connect(source, keep={
+                "base_addr",
+                "addr",
+                "count",
+                "be"}),
+            source.we.eq(1),
+            If(data_update, source.data.eq(bus.dat_r))
+        ]
+        fsm.act("SEND_DATA",
+            sink.connect(source, keep={"valid", "last", "last_be", "ready"}),
+            If(source.valid & source.ready,
+                If(source.last,
+                    NextState("IDLE")
+                ).Else(
+                    NextState("READ_DATA")
+                )
+            )
+        )
+
+# Etherbone Wishbone Slave -------------------------------------------------------------------------
+
+class LiteEthEtherboneWishboneSlave(LiteXModule):
+    def __init__(self):
+        self.bus    = bus    = wishbone.Interface()
+        self.sink   = sink   = stream.Endpoint(eth_etherbone_mmap_description(32))
+        self.source = source = stream.Endpoint(eth_etherbone_mmap_description(32))
+
+        # # #
+
+        self.fsm = fsm = FSM(reset_state="IDLE")
+        fsm.act("IDLE",
+            sink.ready.eq(1),
+            If(bus.stb & bus.cyc,
+                If(bus.we,
+                    NextState("SEND_WRITE")
+                ).Else(
+                    NextState("SEND_READ")
+                )
+            )
+        )
+        fsm.act("SEND_WRITE",
+            source.valid.eq(1),
+            source.last.eq(1),
+            source.last_be.eq(1 << 3),
+            source.base_addr[2:].eq(bus.adr),
+            source.count.eq(1),
+            source.be.eq(bus.sel),
+            source.we.eq(1),
+            source.data.eq(bus.dat_w),
+            If(source.valid & source.ready,
+                bus.ack.eq(1),
+                NextState("IDLE")
+            )
+        )
+        fsm.act("SEND_READ",
+            source.valid.eq(1),
+            source.last.eq(1),
+            source.last_be.eq(1 << 3),
+            source.base_addr.eq(0),
+            source.count.eq(1),
+            source.be.eq(bus.sel),
+            source.we.eq(0),
+            source.data[2:].eq(bus.adr),
+            If(source.valid & source.ready,
+                NextState("WAIT_READ")
+            )
+        )
+        fsm.act("WAIT_READ",
+            sink.ready.eq(1),
+            If(sink.valid & sink.we,
+                bus.ack.eq(1),
+                bus.dat_r.eq(sink.data),
+                NextState("IDLE")
+            )
+        )
+
+
+# Etherbone ----------------------------------------------------------------------------------------
+
+class LiteEthEtherbone(LiteXModule):
+    def __init__(self, udp, udp_port, mode="master", buffer_depth=4, cd="sys"):
+        # Encode/encode etherbone packets. Largest packet sent: a record with buffer_depth words
+        # (packet header + record header + base address + data).
+        max_packet_length  = etherbone_packet_header_length + etherbone_record_header_length
+        max_packet_length += 4 + 4*buffer_depth
+        self.packet = packet = LiteEthEtherbonePacket(udp, udp_port, cd,
+            max_packet_length = max_packet_length,
+        )
+
+        # Packets can be probe (etherbone discovering) or records with writes and reads.
+        self.probe  = probe  = LiteEthEtherboneProbe()
+        record_cls = (LiteEthEtherboneValidatedRecord
+                      if getattr(udp, "rx_frame_validated", False) else LiteEthEtherboneRecord)
+        self.record = record = record_cls(buffer_depth=buffer_depth)
+
+        # Arbitrate/dispatch probe/records packets.
+        dispatcher = Dispatcher(packet.source, [probe.sink, record.sink])
+        self.comb += dispatcher.sel.eq(~packet.source.pf)
+        arbiter = Arbiter([probe.source, record.source], packet.sink)
+        self.submodules += dispatcher, arbiter
+
+        # Create MMAP wishbone.
+        self.wishbone = {
+            "master": LiteEthEtherboneWishboneMaster(),
+            "slave":  LiteEthEtherboneWishboneSlave(),
+        }[mode]
+        self.comb += [
+            record.receiver.source.connect(self.wishbone.sink),
+            self.wishbone.source.connect(record.sender.sink)
+        ]

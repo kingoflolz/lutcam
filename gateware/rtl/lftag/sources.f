@@ -1,0 +1,15 @@
+rtl/lftag/lftag_pkg.sv
+rtl/lftag/LfTagCandidateFifoRamMetadata.sv
+rtl/lftag/LfTagCornerSelect9.sv
+rtl/lftag/LfTagHomogeneousGeometryScorer.sv
+rtl/lftag/LfTagReciprocalSqrt512.sv
+rtl/lftag/LfTagInitialHomographyCalibrationDatapath.sv
+rtl/lftag/LfTagInitialHomographyNormalizeDatapath.sv
+rtl/lftag/LfTagInitialHomographyFused.sv
+rtl/lftag/LfTagPoseReconstruct.sv
+rtl/lftag/LfTagCompact3x3DecoderLocalizer.sv
+rtl/lftag/LfTagWideAddSub.sv
+rtl/lftag/LfTagFit9.sv
+rtl/lftag/LfTagDecodeFrontend.sv
+rtl/lftag/LfTagAcceptedRefiner.sv
+rtl/lftag/SharedLfTagDecoder.sv

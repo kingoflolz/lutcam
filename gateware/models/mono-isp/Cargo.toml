@@ -1,0 +1,10 @@
+[package]
+name = "mono-isp"
+version = "0.1.0"
+license.workspace = true
+edition = "2024"
+description = "Bit-exact reference model for the monochrome ISP gateware"
+
+[lib]
+name = "mono_isp"
+path = "src/lib.rs"

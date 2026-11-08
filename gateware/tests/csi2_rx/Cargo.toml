@@ -1,0 +1,12 @@
+[package]
+name = "csi2-rx-rtl-tests"
+version = "0.1.0"
+license.workspace = true
+edition.workspace = true
+publish = false
+description = "RTL verification for the OV9281 CSI-2 receiver"
+
+[dev-dependencies]
+ov9281-csi2-rx = { path = "../../models/ov9281-csi2-rx" }
+marlin.workspace = true
+rtl-test-support = { path = "../support" }

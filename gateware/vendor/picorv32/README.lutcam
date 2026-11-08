@@ -1,0 +1,31 @@
+PicoRV32, upstream https://github.com/YosysHQ/picorv32
+Commit ef203c2b0a3fb793280f5114941416c425c5b461 (ISC; see COPYING).
+The board instantiates only picorv32.
+Configuration: RV32EC, single-port register file, no counters, IRQ, PCPI, MUL
+or DIV. Shifts advance one bit per cycle. Firmware uses aligned memory accesses;
+misalignment and illegal-instruction traps remain enabled.
+
+Local logic changes:
+- PROGADDR_WIDTH (default 32) sizes PC state and branch-target arithmetic;
+  the board uses 12 bits for its 4 KiB resident program address space.
+- STACKADDR_WIDTH (default 32) sizes x2; the board uses 13 bits to include
+  reset SP=4096. All other writable registers, data and MMIO remain 32 bits.
+  In particular, ra remains full width because LLVM uses it as a temporary.
+- FIXED_GP (default disabled) supplies the board's linker constant 2032 and
+  fixes tp at zero. ZERO_REGS additionally removes t1/t2; the firmware build
+  reserves these registers and checks disassembly. This is a specialized
+  resident firmware ABI, identified by its LRV2 image header.
+- Single-port reads share selection decoding and OR mutually exclusive
+  register values. Writes are decoded individually, allowing constant and
+  narrow registers to disappear without added read muxes.
+- Add, subtract and signed/unsigned ordered comparisons share one carry
+  chain. Equality retains a parallel comparison.
+- AND/OR/XOR share factored Boolean terms and one result selector. Logical
+  and arithmetic shifts share the right-shift path.
+- ALU results and branch targets share the existing result register.
+- Store data comes directly from the held operand and lane-replication logic,
+  avoiding a second 32-bit holding register. Stall tests cover all store sizes.
+
+No RAM, DSP or synthesis-mapping substitutions are used for the CPU.
+The firmware build validates fixed/reserved registers and local SP usage,
+checks a conservative call-graph stack bound, and enforces the 4 KiB layout.
