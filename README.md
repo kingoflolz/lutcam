@@ -1,6 +1,12 @@
-# Lutcam
+# LUTCam - FPGA image fiducial detection
 
-Lutcam's original RTL/gateware, software, firmware, and hardware designs are
+**Note, this repo is just a snapshot of a side project. Don't expect any support or new features.**
+
+**All the software/RTL is AI generated, but it does work ¯\\\_(ツ)\_/¯**
+
+See blog post describing this project [here](https://benwang.dev/2026/11/01/FPGA-Fiducial.html).
+
+LUTCam's original RTL/gateware, software, firmware, and hardware designs are
 licensed under the [Apache License, Version 2.0](LICENSE). See [NOTICE](NOTICE)
 for the scope and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for third-party
 code, library elements, models, documentation, and data that retain their own terms.

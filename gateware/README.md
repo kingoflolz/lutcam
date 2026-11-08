@@ -1,5 +1,9 @@
 # LUTCAM Gateware
 
+**The modules are generally written in portable verilog, but will likely need some adjustment for different FPGAs as most
+have been optimized against the particular Efinix PnR flow, and the optimizations might be complicated/counterproductive
+for other targets.**
+
 Lutcam's original RTL, firmware, reference models, and supporting tools are
 licensed under the [Apache License, Version 2.0](../LICENSE). Vendored code and
 other third-party material retain their own terms; see
